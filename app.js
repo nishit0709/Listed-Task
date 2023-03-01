@@ -142,7 +142,8 @@ async function getReceipients(auth){
             if(!senderList.includes(tempSenderList[i])){ // check if mail hasn't been already sent
                 senderList.push(tempSenderList[i])
                 await sendMail(gmail, tempSenderList[i])
-                //Add Label here
+                // addLabel(gmail, messagesID, labelId)
+                // label function defined but incomplete, need to fetch messageId and labelID 
             }
         }
     }
@@ -153,6 +154,6 @@ async function getReceipients(auth){
 authorize().then((client) => {
     setInterval(() => {
         getReceipients(client)
-    }, Math.floor(Math.random() * (120000 - 45000)) + 45000); 
+    }, Math.floor(Math.random() * (120000 - 45000)) + 45000); // call it at random between 45 to 120 seconds
 }).catch(console.error);
 
