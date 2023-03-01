@@ -4,11 +4,14 @@ const path = require('path');
 const process = require('process');
 const {authenticate} = require('@google-cloud/local-auth');
 const {google} = require('googleapis');
+const moment = require('moment')
+
 
 
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'];
 const TOKEN_PATH = path.join(process.cwd(), 'token.json');
 const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
+let time = moment().unix()
 let senderList = [] // Unique list of all the email addresses
 
 
@@ -127,7 +130,9 @@ async function getReceipients(auth){
   let tempSenderList = []
   
   try{
-    let res = await gmail.users.threads.list({userId: 'me', q: `is: after:${new Date().getTime()}`}) // Get latest threads      
+    console.log('Checking for mail...')
+    let res = await gmail.users.threads.list({userId: 'me', q: `is: unread after:${time}`}) // Get latest threads   
+    time = moment().unix()   
     if((res.data.resultSizeEstimate) == 0){
       console.log('No new mails')
     } else {
@@ -167,7 +172,7 @@ async function getReceipients(auth){
 authorize().then(auth => {
   setInterval(async() => {
     await getReceipients(auth)
-  }, Math.floor(Math.random() * (120000 - 45000)) + 45000)  
+  }, Math.floor(Math.random() * (120000 - 45000)) + 45000)  // Randomly check for new mail between 45 to 120 seconds
 }).catch(error => {
   console.log(error)
 })
