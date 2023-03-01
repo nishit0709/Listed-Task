@@ -1,15 +1,15 @@
+require('dotenv').config()
 const fs = require('fs').promises;
 const path = require('path');
 const process = require('process');
 const {authenticate} = require('@google-cloud/local-auth');
 const {google} = require('googleapis');
-const { type } = require('os');
 
 
-const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.labels', 'https://www.googleapis.com/auth/gmail.compose'];
+const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'];
 const TOKEN_PATH = path.join(process.cwd(), 'token.json');
 const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
-let senderList = [] // To ensure that the senders are unique
+let senderList = [] // Unique list of all the email addresses
 
 
 // Check if saved credentials are present
@@ -39,7 +39,7 @@ async function saveCredentials(client) {
 }
 
 
-//authorize function to call the google login oAuth
+//authorize function to call the google login OAuth
 async function authorize() {
   let client = await loadSavedCredentialsIfExist();
   if (client) {
@@ -49,7 +49,7 @@ async function authorize() {
     scopes: SCOPES,
     keyfilePath: CREDENTIALS_PATH,
   });
-  if (client.credentials) {e
+  if (client.credentials) {
     await saveCredentials(client);
   }
   return client;
@@ -58,102 +58,116 @@ async function authorize() {
 
 // Function to add label to the sent mail
 async function addLabel(gmail, messageId, labelId){
-    const res = await gmail.users.messages.modify({
-        userId: 'me',
-        id: messageId,
-        requestBody: {
-          addLabelIds: [labelId],
-        },
-      });
+  try{
+    await gmail.users.messages.modify({
+      userId: 'me',
+      id: messageId,
+      requestBody: {
+        addLabelIds: [labelId],
+      },
+    });
+  }catch(error){
+    console.log(error)
+  }
 }
 
 
-// Send mail to the receipients
+// Send vacation mail to senders
 async function sendMail(gmail, _to){
-    const subject = 'Current Status';
-    const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
-    const messageParts = [
-        'From: John Lark <john.lark3790@gmail.com>',
-        `To: ${_to} <${_to}>`,
-        'Content-Type: text/html; charset=utf-8',
-        'MIME-Version: 1.0',
-        `Subject: ${utf8Subject}`,
-        '',
-        'I am on a vacation, bugger off',
-    ];
-    const message = messageParts.join('\n');
+  const subject = 'Current Status';
+  const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
+  const messageParts = [
+      `From: ${process.env.userName} <${process.env.emailFrom}>`,
+      `To: ${_to} <${_to}>`,
+      'Content-Type: text/html; charset=utf-8',
+      'MIME-Version: 1.0',
+      `Subject: ${utf8Subject}`,
+      '',
+      'I am on a vacation, bugger off',
+  ];
+  const message = messageParts.join('\n');
 
-    const encodedMessage = Buffer.from(message)
-        .toString('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+  const encodedMessage = Buffer.from(message)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
 
+  try{
     const res = await gmail.users.messages.send({
-        userId: 'me',
-        requestBody: {
-            raw: encodedMessage,
-        },
-        
+      userId: 'me',
+      requestBody: {
+          raw: encodedMessage,
+      },    
     });
     console.log(`Email sent to ${_to}`)
+    return res.data.id
+  } catch(error){
+    console.log(error)
+  }
 }
 
 // Get list of unique list of senders to whom the mail has to be sent
-function getSender(headers){
-    let sender 
-    for(let i=headers.length-1; i>=0; i--){
-        
-        if(headers[i].name == 'From'){
-            sender = (/<.*>/g.exec(headers[i].value))[0]
-            break
-        }
-    }
-    return sender.substring(1, sender.length-1)
+function getSenderEmail(headers){
+  let email
+  for(let i=headers.length-1; i>=0; i--){
+      if(headers[i].name == 'From'){
+          email = (/(?<=\<)(.*?)(?=\>)/g.exec(headers[i].value))[0]
+          break
+      }
+  }
+  return email
 }
 
-// checks all the threads where no email has been replied by the user
-async function getReceipients(auth){
-    const gmail = google.gmail({version: 'v1', auth});
-    let threadList = []
-    let tempSenderList = []
-    
-    let res = await gmail.users.threads.list({userId: 'me', q: `is: after:${new Date().getTime()}`}) // Get latest threads
-    let threads = res.data.threads
-    for(let i=0; i<threads.length; i++){ 
-        threadList.push(threads[i].id)
-    }
 
-    for(id in threadList){
+// generates the list of emails to whom the notification for vacation has to be sent, basically the 'main' function
+async function getReceipients(auth){
+  const gmail = google.gmail({version: 'v1', auth});
+  let threadList = []
+  let tempSenderList = []
+  
+  try{
+    let res = await gmail.users.threads.list({userId: 'me', q: `is: after:${new Date().getTime()}`}) // Get latest threads      
+    if((res.data.resultSizeEstimate) == 0){
+      console.log('No new mails')
+    } else {
+      for(thread of res.data.threads){
+        threadList.push(thread.id)
+      }
+      
+      // Get list of emails to whom no replies have been sent by the yuser
+      for(let id of threadList){
         let status = true
-        let res = await gmail.users.threads.get({userId: 'me', id:threadList[id]})
-        let messages = res.data.messages
-        for(let i=0; i<messages.length; i++){ // loop through threads to find which one does not involve user replying to any email
-            if(messages[i].payload.headers[0].name != 'Delivered-To'){ 
-                status = false
-                break;
-            }
+        let res = await gmail.users.threads.get({userId: 'me', id:id})
+        for(msg of res.data.messages){
+          if(msg.payload.headers[0].name != 'Delivered-To'){
+            status = false
+            break;
+          }
         }
         if(status){
-            tempSenderList.push(getSender(messages[0].payload.headers)) // add the new receipents to a temporary list
+          tempSenderList.push(getSenderEmail(msg.payload.headers))
         }
-
-        for(i=0; i<tempSenderList.length; i++){
-            if(!senderList.includes(tempSenderList[i])){ // check if mail hasn't been already sent
-                senderList.push(tempSenderList[i])
-                await sendMail(gmail, tempSenderList[i])
-                // addLabel(gmail, messagesID, labelId)
-                // label function defined but incomplete, need to fetch messageId and labelID 
-            }
+      }
+  
+      // Send vacation mails and add those mails to a label caled 'Vacation Mail'
+      for(_to of tempSenderList){
+        if(!senderList.includes(_to)){
+          senderList.push(_to)
+          const msgID = await sendMail(gmail, _to)
+          await addLabel(gmail, msgID, process.env.labelID)
         }
+      }
     }
+  } catch(error){
+    console.log(error)
+  }
 }
 
-
-
-authorize().then((client) => {
-    setInterval(() => {
-        getReceipients(client)
-    }, Math.floor(Math.random() * (120000 - 45000)) + 45000); // call it at random between 45 to 120 seconds
-}).catch(console.error);
-
+authorize().then(auth => {
+  setInterval(async() => {
+    await getReceipients(auth)
+  }, Math.floor(Math.random() * (120000 - 45000)) + 45000)  
+}).catch(error => {
+  console.log(error)
+})
