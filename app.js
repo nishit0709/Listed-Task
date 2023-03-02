@@ -77,7 +77,7 @@ async function addLabel(gmail, messageId, labelId){
 
 // Send vacation mail to senders
 async function sendMail(gmail, _to){
-  const subject = 'Current Status';
+  const subject = process.env.emailSubject;
   const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
   const messageParts = [
       `From: ${process.env.userName} <${process.env.emailFrom}>`,
@@ -86,7 +86,7 @@ async function sendMail(gmail, _to){
       'MIME-Version: 1.0',
       `Subject: ${utf8Subject}`,
       '',
-      'I am on a vacation, bugger off',
+      `${process.env.emailContent}`,
   ];
   const message = messageParts.join('\n');
 
@@ -172,7 +172,7 @@ async function getReceipients(auth){
 authorize().then(auth => {
   setInterval(async() => {
     await getReceipients(auth)
-  }, Math.floor(Math.random() * (120000 - 45000)) + 45000)  // Randomly check for new mail between 45 to 120 seconds
+  }, Math.floor(Math.random() * (12000 - 4500)) + 4500)  // Randomly check for new mail between 45 to 120 seconds
 }).catch(error => {
   console.log(error)
 })

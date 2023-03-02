@@ -1,15 +1,17 @@
 {
   "name": "gmailapi",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "An application built using gmail API to send automatic responses to received mails",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test.mjs",
+    "start": "node app.js"
   },
-  "author": "",
+  "author": "Nishit Pandit",
   "license": "ISC",
   "dependencies": {
     "@google-cloud/local-auth": "^2.1.0",
+    "chalk": "^5.2.0",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "fs": "^0.0.1-security",
