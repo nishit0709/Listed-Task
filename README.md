@@ -1,5 +1,10 @@
 # Listed Task
 
+
+## Description
+
+The program shall check for any new unread emails and respond to them according to message defined in the **.env** file and move the emails after responding to a pre-defined label called **Vacation Mail**
+
 ## Please follow the following steps to run the code
 
 1. Create a sample app on google cloud
@@ -9,7 +14,3 @@
     - npm install
     - npm run test
     - npm run start 
-
-## Description
-
-The program shall check for any new unread emails and respond to them according to message defined in the **.env** file and move the emails after responding to a pre-defined label called **Vacation Mail**
