@@ -7,7 +7,6 @@ const {google} = require('googleapis');
 const moment = require('moment')
 
 
-
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.compose'];
 const TOKEN_PATH = path.join(process.cwd(), 'token.json');
 const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
@@ -172,7 +171,7 @@ async function getReceipients(auth){
 authorize().then(auth => {
   setInterval(async() => {
     await getReceipients(auth)
-  }, Math.floor(Math.random() * (12000 - 4500)) + 4500)  // Randomly check for new mail between 45 to 120 seconds
+  }, Math.floor(Math.random() * (120000 - 45000)) + 45000)  // Randomly check for new mail between 45 to 120 seconds
 }).catch(error => {
   console.log(error)
 })
